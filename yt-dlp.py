@@ -1,8 +1,34 @@
+import glob
 import os
+import shutil
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import yt_dlp
+
+
+def buscar_ffmpeg():
+  """Devuelve la carpeta que contiene ffmpeg.exe, o None si no se encuentra.
+
+  Busca primero en el PATH y luego en las rutas típicas de instalación
+  (winget, C:\\ffmpeg), por si el PATH del proceso no está actualizado.
+  """
+  en_path = shutil.which("ffmpeg")
+  if en_path:
+    return os.path.dirname(en_path)
+
+  local = os.environ.get("LOCALAPPDATA", "")
+  patrones = [
+      os.path.join(local, "Microsoft", "WinGet", "Packages", "*FFmpeg*", "*", "bin"),
+      os.path.join(local, "Microsoft", "WinGet", "Links"),
+      r"C:\ffmpeg\bin",
+      r"C:\Program Files\ffmpeg\bin",
+  ]
+  for patron in patrones:
+    for carpeta in glob.glob(patron):
+      if os.path.isfile(os.path.join(carpeta, "ffmpeg.exe")):
+        return carpeta
+  return None
 
 
 class DescargadorApp:
@@ -291,7 +317,12 @@ class DescargadorApp:
     ydl_opts = {
         "outtmpl": os.path.join(output_path, "%(title)s.%(ext)s"),
         "progress_hooks": [self.hook_progreso],
+        "no_color": True,
     }
+
+    ffmpeg_dir = buscar_ffmpeg()
+    if ffmpeg_dir:
+      ydl_opts["ffmpeg_location"] = ffmpeg_dir
 
     if es_playlist == "no":
       ydl_opts["noplaylist"] = True
